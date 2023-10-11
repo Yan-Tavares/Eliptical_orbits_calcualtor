@@ -25,10 +25,16 @@ Celestial_bodies = [Sun,Earth,Mars]
 
 #----------------Spacecraft details
 m_SC = 300
-I_yy = 1
+I_w = 325.27
+I_u = 1
+I_v = 1
+
 Element_CMs = [[[1.780,0.5,0],24],[[-1.780,-0.5,0],24]]
 Nadir_pointing = "yes"
 Solar_constant_pointing = "yes"
+
+I_y = I_w
+
 
 #----------------Celestial Body delection
 print("Please chhoose your orbiting Celestial body")
@@ -95,7 +101,7 @@ e = C*H**2/miu
 
 #--- PLOTTING INTERVALS AND FIRST ORBIT DETAILS
 
-Circumference_steps = 360
+Circumference_steps = 3600
 Delta_theta = (2*math.pi)/Circumference_steps
 
 if e < 1:
@@ -377,8 +383,14 @@ def Theta_to_E_anomaly(theta,e):
     return E_anomaly
 
 def Radius_to_E_anomaly(r,e,a):
+    try:
+        E_anomaly = math.acos((1-r/a)/e)
+    except:
+        if (1-r/a)/e > 1:
+            E_anomaly = math.acos(1)
+        else:
+            E_anomaly = math.acos(-1)
     
-    E_anomaly = math.acos(round((1-r/a)/e,5))
     return E_anomaly
 
 def E_anomaly_to_time(E_anomaly,n):
@@ -452,8 +464,7 @@ if e< 1:
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
 
-
-if Tracking == "1":
+if e < 1 and Tracking == "1":
     ax.scatter(X_pt, Y_pt, Z_pt, label= "Object position", color ="black",zorder= 25)
 
 #------- Celestial Body sphere
@@ -491,9 +502,13 @@ def GF_calculator(r,m,M_e,G):
 
 if e<1:
     #---------- Calculates the radius for each theta in theta list, store in a list of radius
-    r_list = (Orbit_X_lists[-1]**2+Orbit_Y_lists[-1]**2+Orbit_Z_lists[-1]**2)**0.5
-
+    r_list = ((Orbit_X_lists[-1]**2+Orbit_Y_lists[-1]**2+Orbit_Z_lists[-1]**2)**0.5).tolist()
+    
+    #
     #---------- Find the time from perigee for each of the radius in the list, store in a list of times
+    # Something happens at the middle of the orbit, probably something with theta being repited is making the
+    # theta makes it weird
+    
     time_list = []
     for p in range(len(r_list)):
         E_anomaly = Radius_to_E_anomaly(r_list[p],e,a)
@@ -502,7 +517,18 @@ if e<1:
         else:
             time = Orbital_Period - E_anomaly_to_time(E_anomaly,n)
         time_list.append(time)
+
+
+    for i in range(len(time_list)-1):
+        if time_list[i+1] == time_list[i]:
+            time_list[i]=0
     
+    while 0 in time_list:
+        remove_index = time_list.index(0)
+        theta_list.pop(remove_index)
+        r_list.pop(remove_index)
+        time_list.remove(0)
+
     #---------- Find the gravitational torque vector for each radius in the list
     GT_list = np.array([[]])
     GT_abs_list = []
@@ -516,14 +542,39 @@ if e<1:
         GT_abs_list.append((np.dot(GT,GT))**0.5)
 
     #---------- Find the nadir pointing rate of change per second, store on a list
+    delta_theta_list = [theta_list[-1]-theta_list[-2]]
+    delta_time_list = [time_list[-1]-time_list[-2]]
+
+    for i in range(len(theta_list)-1):
+        delta_theta_list.append(theta_list[i+1]-theta_list[i])
+
+    for i in range(len(time_list)-1):
+        delta_time_list.append(time_list[i+1]-time_list[i])
+
+    
+    omega_list = []
+    for i in range(len(delta_time_list)):
+        omega_list.append(delta_theta_list[i]/delta_time_list[i])
+
+    delta_omega_list = [omega_list[-1]-omega_list[-2]]
+
+    for i in range(len(omega_list)-1):
+        delta_omega_list.append(omega_list[i+1] - omega_list[i])
 
     #---------- Find the angular acceleration of the nadir ponting angle, store on a list
+    alpha_list = []
+    NT_list = []
+    for i in range(len(delta_time_list)):
+        alpha_list.append(delta_omega_list[i]/delta_time_list[i])
+        NT_list.append(I_y*delta_omega_list[i]/delta_time_list[i])
+
 
     #---------- Calculate torque associated with nadir ponting, store on a list
 
     #Plot torque along time
+    print(math.degrees(sum(delta_theta_list)))
     fig, ax = plt.subplots()
-    ax.plot(time_list,GT_abs_list)
+    ax.plot(time_list,NT_list)
     plt.show()
 
 
