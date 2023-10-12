@@ -568,8 +568,8 @@ if e<1:
         NT_list.append(I_y*delta_omega_list[i]/delta_time_list[i])
 
     #---------- Find the accumulated momentum on a single reaction wheel
-    I_Wheel = float(input("Insert the reaction wheel inertia kg.m^2"))
-    omega_wheel = float(input("Insert the reaction wheel nominal rotational speed radians/s"))
+    I_Wheel = float(input("Insert the reaction wheel inertia kg.m^2: "))
+    omega_wheel = float(input("Insert the reaction wheel nominal rotational speed radians/s: "))
 
     omega_wheel_list = [omega_wheel]
     for i in range(len(NT_list)-1):
