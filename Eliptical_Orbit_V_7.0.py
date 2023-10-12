@@ -25,16 +25,15 @@ Celestial_bodies = [Sun,Earth,Mars]
 
 #----------------Spacecraft details
 m_SC = 300
-I_w = 325.27
-I_u = 1
-I_v = 1
+I_w = 574.372
+I_u = 321.623
+I_v = 297.11
 
 Element_CMs = [[[1.780,0.5,0],24],[[-1.780,-0.5,0],24]]
 Nadir_pointing = "yes"
 Solar_constant_pointing = "yes"
 
-I_y = I_w
-
+I_y = I_u
 
 #----------------Celestial Body delection
 print("Please chhoose your orbiting Celestial body")
@@ -561,20 +560,27 @@ if e<1:
     for i in range(len(omega_list)-1):
         delta_omega_list.append(omega_list[i+1] - omega_list[i])
 
-    #---------- Find the angular acceleration of the nadir ponting angle, store on a list
+    #---------- Find the angular acceleration and torque assiciated with the nadir ponting angle
     alpha_list = []
     NT_list = []
     for i in range(len(delta_time_list)):
         alpha_list.append(delta_omega_list[i]/delta_time_list[i])
         NT_list.append(I_y*delta_omega_list[i]/delta_time_list[i])
 
+    #---------- Find the accumulated momentum on a single reaction wheel
+    I_Wheel = float(input("Insert the reaction wheel inertia kg.m^2"))
+    omega_wheel = float(input("Insert the reaction wheel nominal rotational speed radians/s"))
+
+    omega_wheel_list = [omega_wheel]
+    for i in range(len(NT_list)-1):
+        omega_wheel += -NT_list[i] * delta_time_list[i]
+        omega_wheel_list.append(omega_wheel)
 
     #---------- Calculate torque associated with nadir ponting, store on a list
 
     #Plot torque along time
-    print(math.degrees(sum(delta_theta_list)))
     fig, ax = plt.subplots()
-    ax.plot(time_list,NT_list)
+    ax.plot(time_list,omega_wheel_list)
     plt.show()
 
 
