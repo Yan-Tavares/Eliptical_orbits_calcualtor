@@ -573,7 +573,7 @@ if e<1:
 
     omega_wheel_list = [omega_wheel]
     for i in range(len(NT_list)-1):
-        omega_wheel += -NT_list[i] * delta_time_list[i]
+        omega_wheel += -NT_list[i] * delta_time_list[i]/I_Wheel
         omega_wheel_list.append(omega_wheel)
 
     #---------- Calculate torque associated with nadir ponting, store on a list
