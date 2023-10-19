@@ -29,7 +29,6 @@ I_w = 574.372
 I_u = 321.623
 I_v = 297.11
 
-Element_CMs = [[[1.780,0.5,0],24],[[-1.780,-0.5,0],24]]
 Nadir_pointing = "yes"
 Solar_constant_pointing = "yes"
 
@@ -493,11 +492,6 @@ plt.show()
 
 #--------------- Disturbance and operational torques --------------#
 #-------------------------------------------------------------------
-# Uses orbit referential
-
-def GF_calculator(r,m,M_e,G):
-    GF=-(G*M_e*m)/r**2
-    return GF
 
 if e<1:
     #---------- Calculates the radius for each theta in theta list, store in a list of radius
@@ -505,8 +499,6 @@ if e<1:
     
     #
     #---------- Find the time from perigee for each of the radius in the list, store in a list of times
-    # Something happens at the middle of the orbit, probably something with theta being repited is making the
-    # theta makes it weird
     
     time_list = []
     for p in range(len(r_list)):
@@ -537,27 +529,169 @@ if e<1:
 
     delta_time_list = np.array(delta_time_list)
 
+    #-------- Gravitational torque
+
+    # Solar Panels 44.958 kg 
+    # Antenna 47.541 kg
+
+    def Gravity_torque(mass,model,a_o,a,b_o,b,c_o,c,r,M):
+
+        def g(r,M):
+            G = 6.6732*10**(-11)
+            gravity = G*M/(r)**2
+
+            return gravity
+
+        # if model == "Cylinder":
+
+        #     def mass_arm_cylinder_dh(L,h,R,rho):
+        #         result = 2 * rho* ((L**2 * (R**2-(h**2))**0.5)/2)
+        #         return result
+        
+        #     L_o, L_f, h_o, R = a_o,a,b_o,b
+
+        #     volume = (np.pi*R**2) * abs(L_f - L_o)
+        #     rho = mass/volume
+
+        #     #print("Integrating from ",L_o ,"to",L_f)
+        #     steps_of_h = np.arange(-R,R,2*R/10**3)
+
+        #     GT = 0
+        #     for i in range(len(steps_of_h)-1):
+
+        #         delta_h = steps_of_h[i+1] - steps_of_h[i]
+        #         dGT = g(r+steps_of_h[i],M) * (mass_arm_cylinder_dh(L_f,steps_of_h[i],R,rho)-mass_arm_cylinder_dh(L_o,steps_of_h[i],R,rho)) * delta_h
+        #         GT+=dGT
+
+        #     return GT
+
+        if model == "Rect Prism":
+            def mass_arm_rect_prism_dh(L,w,rho):
+                result = rho* ((w*L**2)/2)
+                return result
+            
+
+            L_o, L_f, h_o, h_f,w = a_o,a,b_o,b,c-c_o 
+            volume = abs((L_f-L_o)*(h_f - h_o)*w)
+            rho = mass/volume
+
+            #print("Integrating from ",L_o ,"to",L_f)
+            steps_of_h = np.arange(h_o,h_f,(h_f-h_o)/10**3)
+
+            GT = 0
+            for i in range(len(steps_of_h)-1):
+                delta_h = steps_of_h[i+1] - steps_of_h[i]
+                dGT = g(r+steps_of_h[i],M) * (mass_arm_rect_prism_dh(L_f,w,rho) - mass_arm_rect_prism_dh(L_o,w,rho)) * delta_h
+                GT+=dGT
+
+            #print(GT)
+            return GT
+
+    def Model_CM(Elements_cm_list):
+
+        CM = [0,0,0,0]
+        for element in Elements_cm_list:
+            CM[0] += element[0]
+
+        print( CM[0])
+
+        for element in Elements_cm_list:
+            CM[1] += element[1]*element[0] / CM[0]
+            CM[2] += element[2]*element[0] / CM[0]
+            CM[3] += element[3]*element[0] / CM[0]
+
+        return CM
+
+
+    # Elements of spacecraft based on its axis x,y,z
+
+    Elements_CM_list = [[314.854,0,0,2.135/2],
+                        [47.54,0,0,2.885],
+                        [44.958,0,0,0.783]]
+
+    # Element_shapes = [[314.854,1.898,1.898,2.135,"Cylinder"],
+    #                 [47.54,2.10,2.10,1.5,"Cylinder"],
+    #                 [44.958,1.4,1.4,0.002,"Rect Prism"]]
+
+    Element_shapes = [[314.854,1.898,1.898,2.135,"Rect Prism"],
+                    [47.54,2.10,2.10,1.5,"Rect Prism"],
+                    [44.958,1.4,1.4,0.002,"Rect Prism"]]
+    
+    CM = Model_CM(Elements_CM_list)
+
+    print("Elements CM from the bottom:")
+    print(Elements_CM_list)
+
+    for element in Elements_CM_list:
+        element[1] -= CM[1]
+        element[2] -= CM[2]
+        element[3] -= CM[3]
+
+    print("Elements CM from model CM:")
+    print(Elements_CM_list)
+
+    # Select Spacecraft axis parallel to the gravity gradient
+    Para_axis = 1
+    # Select one of the axis perpendicular to gravity gradient to find torques along the other axis
+    Perp_axis = 3
+    #Rotating axis
+    Rot_axis = 2
+
+
+    GT_abs_list = []
+    GT_vector_list = []
+    for p in range(len(r_list)):
+        GT = 0
+        for n,element in enumerate(Element_shapes):
+            Z_max_from_CM = Elements_CM_list[n][Perp_axis] + element[Perp_axis]/2
+            Z_zero_from_CM = Elements_CM_list[n][Perp_axis] - element[Perp_axis]/2
+            Y_max_from_CM = Elements_CM_list[n][Rot_axis] + element[Rot_axis]/2
+            Y_zero_from_CM = Elements_CM_list[n][Rot_axis] - element[Rot_axis]/2
+            X_max_from_CM = Elements_CM_list[n][Para_axis] + element[Para_axis]/2
+            X_zero_from_CM = Elements_CM_list[n][Para_axis] - element[Para_axis]/2
+            
+            if Z_max_from_CM > 0 and Z_zero_from_CM > 0:
+                GT += Gravity_torque(element[0],element[-1],
+                        Z_zero_from_CM, Z_max_from_CM,
+                        X_zero_from_CM, X_max_from_CM,
+                        Y_zero_from_CM, Y_max_from_CM,
+                        r_list[p], M_e)
+                
+
+            if Z_max_from_CM > 0 and Z_zero_from_CM < 0:
+                positive = (Gravity_torque(element[0],element[-1],
+                        0, Z_max_from_CM,
+                        X_zero_from_CM, X_max_from_CM,
+                        Y_zero_from_CM, Y_max_from_CM,
+                        r_list[p], M_e))
+
+                negative = -(Gravity_torque(element[0],element[-1],
+                        0, Z_zero_from_CM,
+                        X_zero_from_CM, X_max_from_CM,
+                        Y_zero_from_CM, Y_max_from_CM,
+                        r_list[p], M_e))
+                
+                GT += positive + negative
+
+            
+            if Z_max_from_CM < 0 and Z_zero_from_CM < 0:
+                GT +=- Gravity_torque(element[0],element[-1],
+                        Z_max_from_CM, Z_zero_from_CM,
+                        X_zero_from_CM, X_max_from_CM,
+                        Y_zero_from_CM, Y_max_from_CM,
+                        r_list[p], M_e)
+        
+        GT *= 10**5
+        GT_vector = [0,0,0]
+        GT_vector[Rot_axis-1] = GT
+        GT_vector_list.append(GT_vector)
+        GT_abs_list.append(GT)
+
+    GT_abs_list = np.array(GT_abs_list)
+
     #-------- Solar torque
     ST_worst = 0.00175
     ST_abs_list = np.tile(ST_worst,delta_time_list.shape)
-    
-    I_Wheel = float(input("Insert the reaction wheel inertia kg.m^2: ")) # 0.00637
-    omega_wheel = float(input("Insert the reaction wheel nominal rotational speed radians/s: "))
-
-    #-------- Gravitational torque
-
-    GT_list = np.array([[]])
-    GT_abs_list = []
-    for p in range(len(r_list)):
-        
-        GT = np.array([0,0,0])
-        for c in range(len(Element_CMs)):
-            GF = [0,GF_calculator(r_list[p]+Element_CMs[c][0][0],m_SC,M_e,G)-(GF_calculator(r_list[p],m_SC,M_e,G)),0]
-            GT = np.add(GT,np.cross(Element_CMs[c][0],GF))
-
-        GT_abs_list.append((np.dot(GT,GT))**0.5)
-
-    GT_abs_list = np.array(GT_abs_list)
 
     #-------- Nadir torques
 
@@ -582,8 +716,12 @@ if e<1:
     #-------- Total torque
     Total_torque = NT_list + GT_abs_list + ST_abs_list
 
+    #-------- Momentum wheel
+    I_Wheel = float(input("Insert the reaction wheel inertia kg.m^2: ")) # 0.00637
+    omega_wheel = float(input("Insert the reaction wheel nominal rotational speed radians/s: "))
+
     omega_wheel_list = [omega_wheel]
-    for i in range(len(GT_abs_list)-1):
+    for i in range(len(Total_torque)-1):
         omega_wheel += -Total_torque[i] * delta_time_list[i]/I_Wheel
         omega_wheel_list.append(omega_wheel)
 
@@ -596,9 +734,36 @@ if e<1:
     print(f"{'Nadir pointing torques:':<35}{np.max(NT_list):<10.5f}{np.min(NT_list):<10.5f}{'[N.m]':<}")
 
     print("\n----------------------------\n")
-    fig, ax = plt.subplots()
-    ax.plot(time_list,omega_wheel_list_rpm)
+    
+    fig, axs1 = plt.subplots(1,2)
+    axs1[0].plot(time_list,omega_wheel_list_rpm)
+    axs1[0].set(xlabel="Orbit time [s]",ylabel="Wheel speed [RPM]")
+    axs1[0].grid()
+
+    axs1[1].plot(time_list,Total_torque)
+    axs1[1].set(xlabel="Orbit time [s]",ylabel="Total torque [N.m]")
+    axs1[1].grid()
+
+    fig.tight_layout()
+
+
+    fig, axs2 = plt.subplots(2,2)
+    axs2[0][0].plot(time_list,NT_list)
+    axs2[0][0].set(xlabel="Orbit time [s]",ylabel="Nadir torque [N.m]")
+    axs2[0][0].grid()
+
+    axs2[0][1].plot(time_list,ST_abs_list)
+    axs2[0][1].set(xlabel="Orbit time [s]",ylabel="Solar torque [N.m]")
+    axs2[0][1].grid()
+
+    axs2[1][0].plot(time_list,GT_abs_list)
+    axs2[1][0].set(xlabel="Orbit time [s]",ylabel="Gravity torque [N.m]")
+    axs2[1][0].grid()
+
+    fig.tight_layout()
+    
     plt.show()
+
 
 
     # WORK HERE 
