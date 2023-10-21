@@ -732,8 +732,8 @@ if e<1:
     Total_abs_torque = NT_abs_list + GT_abs_list + ST_abs_list
 
     #-------- Momentum wheel
-    I_Wheel = float(input("Insert the reaction wheel inertia kg.m^2: ")) # 0.00637
-    omega_wheel_start = float(input("Insert the reaction wheel nominal rotational speed radians/s: "))
+    I_Wheel = 0.00637
+    omega_wheel_start = 0
 
     omega_wheel = omega_wheel_start
     omega_wheel_list_y = [omega_wheel]
@@ -755,14 +755,16 @@ if e<1:
 
     fig, axs1 = plt.subplots(1,2)
 
-    axs1[0].plot(time_list,Total_vector_torque[:,0])
-    axs1[0].plot(time_list,Total_vector_torque[:,1])
-    axs1[0].plot(time_list,Total_vector_torque[:,2])
+    axs1[0].plot(time_list,Total_vector_torque[:,0], label="$TT_x$" , color= "red")
+    axs1[0].plot(time_list,Total_vector_torque[:,1], label="$TT_y$" , color= "tab:blue")
+    axs1[0].plot(time_list,Total_vector_torque[:,2], label="$TT_z$" , color= "green")
     axs1[0].set(xlabel="Orbit time [s]",ylabel="Total torque SC axis [N.m]")
+    axs1[0].legend(loc='lower left')
     axs1[0].grid()
 
-    axs1[1].plot(time_list,omega_wheel_list_y_rpm)
+    axs1[1].plot(time_list,omega_wheel_list_y_rpm,label="$\omega_{wheel y}$")
     axs1[1].set(xlabel="Orbit time [s]",ylabel="Momentum wheel angular speed [rpm]")
+    axs1[1].legend(loc='lower left')
     axs1[1].grid()
 
     fig.tight_layout()
@@ -770,21 +772,25 @@ if e<1:
 
     fig, axs2 = plt.subplots(2,2)
     
-    axs2[0][0].plot(time_list,NT_vector_list[:,1])
+    axs2[0][0].plot(time_list,NT_vector_list[:,1],linestyle = "dashed", label="$NT_y$")
     axs2[0][0].set(xlabel="Orbit time [s]",ylabel="Nadir torque S/C Y axis [N.m]")
+    axs2[0][0].legend(loc='lower right')
     axs2[0][0].grid()
 
-    axs2[0][1].plot(time_list,ST_vector_list[:,0])
-    axs2[0][1].plot(time_list,ST_vector_list[:,2])
+    axs2[0][1].plot(time_list,ST_vector_list[:,0],linestyle = "dashed", label="$ST_x$", color= "red")
+    axs2[0][1].plot(time_list,ST_vector_list[:,2],linestyle = "dashed", label="$ST_z$", color= "green")
     axs2[0][1].set(xlabel="Orbit time [s]",ylabel="Solar torque S/C Z and X axis [N.m]")
+    axs2[0][1].legend(loc='lower left')
     axs2[0][1].grid()
 
-    axs2[1][0].plot(time_list,GT_vector_list[:,1])
+    axs2[1][0].plot(time_list,GT_vector_list[:,1],linestyle = "dashed", label="$GT_y$")
     axs2[1][0].set(xlabel="Orbit time [s]",ylabel="Gravity torque S/C Y axis [N.m]")
+    axs2[1][0].legend(loc='lower left')
     axs2[1][0].grid()
 
-    axs2[1][1].plot(time_list,ST_vector_list[:,1])
+    axs2[1][1].plot(time_list,ST_vector_list[:,1],linestyle = "dashed", label="$ST_y$")
     axs2[1][1].set(xlabel="Orbit time [s]",ylabel="Solar torque S/C Y axis [N.m]")
+    axs2[1][1].legend(loc='lower left')
     axs2[1][1].grid()
 
     fig.tight_layout()
