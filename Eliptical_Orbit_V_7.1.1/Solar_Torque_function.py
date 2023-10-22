@@ -5,7 +5,6 @@ def Solar_Torque(A_bus,r_b,r_a,h,theta,CR):
     import numpy as np
     from sympy import sin, cos, tan, pi
 
-    CR = 2
     GscoverR2 = 590 # /m^2
     c = 3*10**6 # m/s
 

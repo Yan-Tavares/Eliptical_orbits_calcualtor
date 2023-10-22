@@ -99,7 +99,7 @@ e = C*H**2/miu
 
 #--- PLOTTING INTERVALS AND FIRST ORBIT DETAILS
 
-Circumference_steps = 100
+Circumference_steps = 250
 Delta_theta = (2*math.pi)/Circumference_steps
 
 if e < 1:
@@ -141,11 +141,6 @@ else:
     
     
 #--- 3D PLOT
-
-Orbit_X_lists = np.array([[]])
-Orbit_Y_lists = np.array([[]])
-Orbit_Z_lists = np.array([[]])
-
 theta_list,X_list,Y_list,Z_list = [],[],[],[]
     
 for i in range(theta_range+1):
@@ -197,23 +192,25 @@ while e < 1 and Maneuvers == "1":
         #------------------------------------------------ Setting interval for plotting
         if e < 1:
             theta_range = int(Circumference_steps)
+            theta_list=[]
         else:
             theta_range = int(Circumference_steps * 0.2)
+            theta_list=[]
         
         #------------------------------------------------ Creating the data for plotting
         for i in range(theta_range+1):
-            theta = Delta_theta * i
-            theta = Delta_theta * i
+            theta = -np.pi + Delta_theta * i
             r = (C*math.cos(theta)+miu/H**2)**-1
-            X = - r * math.cos(theta)
+            X = -r * math.cos(theta)
             Y = r * math.sin(theta) * math.cos(Inclination)
             Z = r * math.sin(theta) * math.sin(Inclination)
             
             #------------------------------------------------ Storing the coordinates in lists same length
-            theta_list.append(theta)
+            theta_list.append(Delta_theta * i)
             X_list.append(X)
             Y_list.append(Y)
             Z_list.append(Z)
+
         
         #------------------------------------------------ Find new right extreme for next maneuver
         if e < 1:
@@ -252,8 +249,10 @@ while e < 1 and Maneuvers == "1":
         #------------------------------------------------ Setting interval for plotting
         if e < 1:
             theta_range = int(Circumference_steps)
+            theta_list=[]
         else:
             theta_range = int(Circumference_steps * 0.2)
+            theta_list=[]
         
         #------------------------------------------------ Creating the data for plotting
         for i in range(theta_range+1):
@@ -285,6 +284,7 @@ while e < 1 and Maneuvers == "1":
         
     if Type == "3":
         X_list,Y_list,Z_list = [],[],[]
+        theta_list=[]
         
         Inclination_before_maneuver = Inclination
         Inclination = math.radians(float(input("Incert your new inclination in degrees: ")))
@@ -336,7 +336,6 @@ while e < 1 and Maneuvers == "1":
     
     else:
         print("\n Please choose one of the options next time >>:( \n")
-
 
 #--- FINAL ORBIT STATS
 if Maneuvers_done == True and e<1:
@@ -460,10 +459,10 @@ if e< 1:
 #------------ Orbit 3D plots --------------#
 #------------------------------------------#
 fig = plt.figure()
-ax = fig.add_subplot(projection='3d')
+ax3d = fig.add_subplot(projection='3d')
 
 if e < 1 and Tracking == "1":
-    ax.scatter(X_pt, Y_pt, Z_pt, label= "Object position", color ="black",zorder= 25)
+    ax3d.scatter(X_pt, Y_pt, Z_pt, label= "Object position", color ="black",zorder= 25)
 
 #------- Celestial Body sphere
 u = np.linspace(0, 2 * math.pi, 200)
@@ -472,22 +471,21 @@ x = r_e * np.outer(np.cos(u), np.sin(v))
 y = r_e * np.outer(np.sin(u), np.sin(v))
 z = r_e * np.outer(np.ones(np.size(u)), np.cos(v))
 # outer function make a linear combination of the np arrays "u" and "v"
-ax.plot_surface(x, y, z,color="orange",zorder = 1)
+ax3d.plot_surface(x, y, z,color="orange",zorder = 1)
 
 #------- Plot all porbits
 
 for i in range(len(Orbit_X_lists)):
     name = "Orbit: " + str(i+1)
-    ax.plot(Orbit_X_lists[i], Orbit_Y_lists[i], Orbit_Z_lists[i], label= name, zorder=5)
+    ax3d.plot(Orbit_X_lists[i], Orbit_Y_lists[i], Orbit_Z_lists[i], label= name, zorder=5)
 
 answer = str(input("The orbit will be plotted, Would you like to hide the axis? \n 1- Yes \n 2- No \n Answer:"))
 if answer == "1":
     plt.axis('off')
     plt.grid(b=None)
 
-ax.set_aspect('equal')
-ax.legend()
-plt.show()
+ax3d.set_aspect('equal')
+ax3d.legend()
 
 
 #--------------- Disturbance and operational torques --------------#
@@ -496,8 +494,7 @@ plt.show()
 if e<1:
     #---------- Calculates the radius for each theta in theta list, store in a list of radius
     r_list = ((Orbit_X_lists[-1]**2+Orbit_Y_lists[-1]**2+Orbit_Z_lists[-1]**2)**0.5).tolist()
-    
-    #
+
     #---------- Find the time from perigee for each of the radius in the list, store in a list of times
     
     time_list = []
@@ -528,6 +525,78 @@ if e<1:
         delta_time_list.append(time_list[i+1]-time_list[i])
 
     delta_time_list = np.array(delta_time_list)
+
+    
+    #---------- Define the 180 yaw turns
+    Turn_around_time = 600
+    Turns_T_anomaly = [np.pi/2, 2*np.pi - np.pi/2]
+
+    Turn_around_start_times, Turn_around_start_indexes = [],[]
+    Turn_around_end_times, Turn_around_end_indexes = [],[]
+
+
+    for turn,turn_angle in enumerate(Turns_T_anomaly):
+        for i in range(len(theta_list)):
+            if theta_list[i] > turn_angle:
+
+                Turn_around_start_times.append(time_list[i])
+                Turn_around_start_indexes.append(i)
+                Turn_around_end_times.append(time_list[i]+Turn_around_time)
+
+                for t in range(i,len(time_list)):
+                    if time_list[t] >= -Turn_around_end_times[turn]:
+                        Turn_around_end_indexes.append(t)
+                        break
+                break
+    
+    #-------- Nadir torques (target torque)
+    for i in range(len(theta_list)-1):
+        delta_theta_list.append(theta_list[i+1]-theta_list[i])
+    
+    omega_list = []
+    for i in range(len(delta_time_list)):
+        omega_list.append(delta_theta_list[i]/delta_time_list[i])
+
+
+    delta_omega_list = [omega_list[-1]-omega_list[-2]]
+    for i in range(len(omega_list)-1):
+        delta_omega_list.append(omega_list[i+1] - omega_list[i])
+
+    alpha_list = []
+    NT_vector_list = []
+    sign = 1
+    turn = 0
+    for i in range(len(delta_time_list)):
+        try:
+            if i > Turn_around_start_indexes[turn]:
+                sign *= (-1)
+                turn += 1
+        except:
+            pass
+        NT_y = sign*I_y*delta_omega_list[i]/delta_time_list[i]
+        NT_vector_list.append([0,NT_y,0])
+
+    NT_vector_list = np.array(NT_vector_list)
+    NT_abs_list = []
+
+    for vector in NT_vector_list:
+        NT_abs_list.append((np.dot(vector,vector))**0.5)
+    
+    NT_abs_list = np.array(NT_abs_list)
+
+
+    #-------- Solar torque
+    import Solar_Torque_function
+    ST_vector_list = np.array(Solar_Torque_function.Solar_Torque(A_bus = 2.045,r_b = 0.480,
+                                                        r_a = 1.04938,h = 1.050,
+                                                        theta = theta_list,
+                                                        CR = 1.75))
+
+    ST_abs_list = []
+    for vector in ST_vector_list:
+        ST_abs_list.append((np.dot(vector,vector))**0.5)
+
+    ST_abs_list = np.array(ST_abs_list)
 
     #-------- Gravitational torque
     def Gravity_torque(mass,model,a_o,a,b_o,b,c_o,c,r,M):
@@ -599,6 +668,8 @@ if e<1:
 
     GT_abs_list = []
     GT_vector_list = []
+    sign = 1
+    turn = 0
     for p in range(len(r_list)):
         GT = 0
         for n,element in enumerate(Element_shapes):
@@ -639,8 +710,15 @@ if e<1:
                         X_zero_from_CM, X_max_from_CM,
                         Y_zero_from_CM, Y_max_from_CM,
                         r_list[p], M_e)
-        
-        GT *= 10**4
+        try:
+            if p >= Turn_around_start_indexes[turn]:
+                print("Turn")
+                sign *= (-1)
+                turn += 1
+        except:
+            pass
+
+        GT *= sign*10**4
         GT_vector = [0,0,0]
         GT_vector[Rot_axis-1] = GT
         GT_vector_list.append(GT_vector)
@@ -649,87 +727,14 @@ if e<1:
     GT_vector_list = np.array(GT_vector_list)
     GT_abs_list = np.array(GT_abs_list)
 
-    #-------- Solar torque
-    import Solar_Torque_function
-    ST_vector_list = np.array(Solar_Torque_function.Solar_Torque(A_bus = 2.045,r_b = 0.480,
-                                                        r_a = 1.04938,h = 1.050,
-                                                        theta = theta_list,
-                                                        CR = 1.75))
-
-    ST_abs_list = []
-    for vector in ST_vector_list:
-        ST_abs_list.append((np.dot(vector,vector))**0.5)
-
-    ST_abs_list = np.array(ST_abs_list)
-
-    #ST_abs_list = ST_vector_list[:,2]
-
-    #-------- Nadir torques
-
-    # Turn_around_time = 600
-    # maneuver_T_anomaly = np.pi/2
-
-    # #Find turn around intervals
-    # for i in range(len(theta_list)):
-    #     if theta_list[i] > maneuver_T_anomaly:
-    #         Turn_around_start_time = time_list[i]
-    #         Turn_around_start_index = i
-
-    #         for t in range(i,len(time_list)):
-    #             if time_list[t]-Turn_around_start_time >= Turn_around_time:
-    #                 print(time_list[t])
-    #                 Turn_around_end_time = time_list[t]
-    #                 Turn_around_end_index = t
-    #                 break
-    #         break
-    
-    # Turn_around_start_attitude = theta_list[Turn_around_start_index]
-    # Turn_around_end_attitude = Turn_around_start_attitude + (Turn_around_start_attitude - theta_list[Turn_around_end_index])
-
-    # print("Turn around start time: ",Turn_around_start_time)
-    # print("Turn around start index: ",Turn_around_start_index)
-    # print("Turn around end index: ",Turn_around_end_index)
-    # print("Turn around start attitude:",Turn_around_start_attitude)
-    # print("Turn around end attitude:",Turn_around_end_attitude)
-    
-    for i in range(len(theta_list)-1):
-        delta_theta_list.append(theta_list[i+1]-theta_list[i])
-    
-    omega_list = []
-    for i in range(len(delta_time_list)):
-        omega_list.append(delta_theta_list[i]/delta_time_list[i])
-
-
-    delta_omega_list = [omega_list[-1]-omega_list[-2]]
-    for i in range(len(omega_list)-1):
-        delta_omega_list.append(omega_list[i+1] - omega_list[i])
-
-    alpha_list = []
-    NT_vector_list = []
-    for i in range(len(delta_time_list)):
-        alpha_list.append(delta_omega_list[i]/delta_time_list[i])
-        NT_vector_list.append([0,I_y*delta_omega_list[i]/delta_time_list[i],0])
-    
-    NT_vector_list = np.array(NT_vector_list)
-    NT_abs_list = []
-
-    for vector in NT_vector_list:
-        NT_abs_list.append((np.dot(vector,vector))**0.5)
-    
-    NT_abs_list = np.array(NT_abs_list)
     #-------- Total torque
 
-    print(NT_abs_list.shape)
-    print(GT_abs_list.shape)
-    print(ST_abs_list.shape)
-
-    Total_vector_torque = NT_vector_list + GT_vector_list + ST_vector_list
-    Total_troque_x = Total_vector_torque[:,0]
-    Total_torque_y = Total_vector_torque[:,1]
-    Total_torque_z = Total_vector_torque[:,2]
+    TT_reac_vec_list = NT_vector_list - GT_vector_list - ST_vector_list
+    TT_reac_x = TT_reac_vec_list[:,0]
+    TT_reac_y = TT_reac_vec_list[:,1]
+    TT_reac_z = TT_reac_vec_list[:,2]
 
 
-    Total_abs_torque = NT_abs_list + GT_abs_list + ST_abs_list
 
     #-------- Momentum wheel
     I_Wheel = 0.00637
@@ -738,8 +743,8 @@ if e<1:
     omega_wheel = omega_wheel_start
     omega_wheel_list_y = [omega_wheel]
 
-    for i in range(len(Total_vector_torque)-1):
-        omega_wheel += -Total_torque_y[i] * delta_time_list[i]/I_Wheel
+    for i in range(len(TT_reac_vec_list)-1):
+        omega_wheel += TT_reac_y[i] * delta_time_list[i]/I_Wheel
         omega_wheel_list_y.append(omega_wheel)
 
     omega_wheel_list_y_rpm = np.array(omega_wheel_list_y) / (2*np.pi) * 60
@@ -755,14 +760,14 @@ if e<1:
 
     fig, axs1 = plt.subplots(1,2)
 
-    axs1[0].plot(time_list,Total_vector_torque[:,0], label="$TT_x$" , color= "red")
-    axs1[0].plot(time_list,Total_vector_torque[:,1], label="$TT_y$" , color= "tab:blue")
-    axs1[0].plot(time_list,Total_vector_torque[:,2], label="$TT_z$" , color= "green")
-    axs1[0].set(xlabel="Orbit time [s]",ylabel="Total torque SC axis [N.m]")
-    axs1[0].legend(loc='lower left')
+    axs1[0].plot(time_list,TT_reac_vec_list[:,0], label="$T_{reac~x}$" ,linestyle = "dashed", color= "red")
+    axs1[0].plot(time_list,TT_reac_vec_list[:,1], label="$T_{reac~y}$" ,linestyle = "dashed", color= "tab:blue")
+    axs1[0].plot(time_list,TT_reac_vec_list[:,2], label="$T_{reac~z}$" ,linestyle = "dashed", color= "green")
+    axs1[0].set(xlabel="Orbit time [s]",ylabel="Reaction torque from momentum wheels [N.m]")
+    axs1[0].legend(loc='lower right')
     axs1[0].grid()
 
-    axs1[1].plot(time_list,omega_wheel_list_y_rpm,label="$\omega_{wheel y}$")
+    axs1[1].plot(time_list,omega_wheel_list_y_rpm, linestyle = "dashed", label="$\omega_{wheel~y}$")
     axs1[1].set(xlabel="Orbit time [s]",ylabel="Momentum wheel angular speed [rpm]")
     axs1[1].legend(loc='lower left')
     axs1[1].grid()
@@ -772,23 +777,23 @@ if e<1:
 
     fig, axs2 = plt.subplots(2,2)
     
-    axs2[0][0].plot(time_list,NT_vector_list[:,1],linestyle = "dashed", label="$NT_y$")
+    axs2[0][0].plot(time_list,NT_vector_list[:,1],linestyle = "dashed", label="$T_{N~y}$")
     axs2[0][0].set(xlabel="Orbit time [s]",ylabel="Nadir torque S/C Y axis [N.m]")
     axs2[0][0].legend(loc='lower right')
     axs2[0][0].grid()
 
-    axs2[0][1].plot(time_list,ST_vector_list[:,0],linestyle = "dashed", label="$ST_x$", color= "red")
-    axs2[0][1].plot(time_list,ST_vector_list[:,2],linestyle = "dashed", label="$ST_z$", color= "green")
+    axs2[0][1].plot(time_list,ST_vector_list[:,0],linestyle = "dashed", label="$T_{s~x}$", color= "red")
+    axs2[0][1].plot(time_list,ST_vector_list[:,2],linestyle = "dashed", label="$T_{s~z}$", color= "green")
     axs2[0][1].set(xlabel="Orbit time [s]",ylabel="Solar torque S/C Z and X axis [N.m]")
     axs2[0][1].legend(loc='lower left')
     axs2[0][1].grid()
 
-    axs2[1][0].plot(time_list,GT_vector_list[:,1],linestyle = "dashed", label="$GT_y$")
+    axs2[1][0].plot(time_list,GT_vector_list[:,1],linestyle = "dashed", label="$T_{g~y}$")
     axs2[1][0].set(xlabel="Orbit time [s]",ylabel="Gravity torque S/C Y axis [N.m]")
-    axs2[1][0].legend(loc='lower left')
+    axs2[1][0].legend(loc='upper center')
     axs2[1][0].grid()
 
-    axs2[1][1].plot(time_list,ST_vector_list[:,1],linestyle = "dashed", label="$ST_y$")
+    axs2[1][1].plot(time_list,ST_vector_list[:,1],linestyle = "dashed", label="$T_{s~y}$")
     axs2[1][1].set(xlabel="Orbit time [s]",ylabel="Solar torque S/C Y axis [N.m]")
     axs2[1][1].legend(loc='lower left')
     axs2[1][1].grid()
